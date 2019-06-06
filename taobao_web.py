@@ -26,16 +26,21 @@ appKey = '12574478'
 requests_session = requests.session()
 
 
-def build_order(buyNow):
-    flag = False
-    sign, t = get_sign_val(buyNow)
+def get_buy_cart(good_id):
+    exParams = {
+        "mergeCombo": True,
+        "version": '1.1.1',
+        "globalSell": 1,
+    }
+    data = json.dumps({"isPage": True, "extStatus": 0,
+                       "netType": 0, "exParams": json.dumps(exParams)})
+    sign, t = get_sign_val(data)
     params = {'jsv': '2.5.1', 'appKey': appKey, 't': t,
-              'sign': sign, 'api': 'mtop.trade.order.build.h5', 'v': '4.0',
-              'type': 'originaljson', 'ttid': '#t#ip##_h5_2019', 'isSec': '1', 'ecode': '1', 'AntiFlood': 'true',
-              'AntiCreep': 'true', 'H5Request': 'true', 'dataType': 'jsonp'}
-    # &smToken=as&sm=e
+              'sign': sign, 'api': 'mtop.trade.query.bag', 'v': '5.0',
+              'type': 'jsonp', 'ttid': 'h5', 'isSec': '0', 'ecode': '1', 'AntiFlood': 'true',
+              'AntiCreep': 'true', 'H5Request': 'true', 'dataType': 'jsonp', 'callback': 'mtopjsonp2', 'data': data}
 
-    url = 'https://h5api.m.taobao.com/h5/mtop.trade.order.build.h5/4.0/?' + \
+    url = 'https://h5api.m.taobao.com/h5/mtop.trade.query.bag/5.0/?' + \
         parse.urlencode(params)
     headers = {
         "Accept": 'application/json',
@@ -44,22 +49,30 @@ def build_order(buyNow):
         "Content-type": 'application/x-www-form-urlencoded',
         "Cookie": user_cookie,
     }
-    data = requests_session.post(url, headers=headers, data={'data': buyNow})
-    print(data.content)
-    data = data.json()
-    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-    print("%s order.build %s " % (now, data.get('ret')))
+    jsonp = requests_session.get(url, headers=headers).text
+    response = jsonp[jsonp.index("(") + 1: jsonp.rindex(")")]
+    data = json.loads(response)
+    print("%s query.bag %s " % (datetime.datetime.now().strftime(
+        '%Y-%m-%d %H:%M:%S.%f'), data.get('ret')))
+    settlement = ''
+    canCheck = False
     if "SUCCESS" not in data.get('ret')[0]:
         fail_sys_sleep(data)
-        return flag, data
-
-    item_info = [x[1] for x in data.get('data').get(
-        'data').items() if "itemInfo_" in x[0]]
-    is_disabled = item_info[0].get('fields').get('disabled')
-    if is_disabled == 'false':
+        flag = False
+    else:
         flag = True
+        item_like = ['item_']
+        for x in data.get('data').get('data').items():
+            for y in item_like:
+                if y in x[0]:
+                    if good_id == x[1]['fields']['itemId']:
+                        settlement = x[1]['fields']['settlement']
+                        canCheck = x[1]['fields']['canCheck']
+                        break
 
-    return flag, data
+    buy_now = {"buyNow": False, "buyParam": settlement,
+               "spm": "a21202.12579950.settlement-bar.0"}
+    return flag, canCheck, json.dumps(buy_now)
 
 
 def get_sign_val(d):
@@ -127,21 +140,16 @@ def create_order(build_data):
     return flag, json_data
 
 
-def get_buy_cart(good_id):
-    exParams = {
-        "mergeCombo": True,
-        "version": '1.1.1',
-        "globalSell": 1,
-    }
-    data = json.dumps({"isPage": True, "extStatus": 0,
-                       "netType": 0, "exParams": json.dumps(exParams)})
-    sign, t = get_sign_val(data)
+def build_order(buyNow):
+    flag = False
+    sign, t = get_sign_val(buyNow)
     params = {'jsv': '2.5.1', 'appKey': appKey, 't': t,
-              'sign': sign, 'api': 'mtop.trade.query.bag', 'v': '5.0',
-              'type': 'jsonp', 'ttid': 'h5', 'isSec': '0', 'ecode': '1', 'AntiFlood': 'true',
-              'AntiCreep': 'true', 'H5Request': 'true', 'dataType': 'jsonp', 'callback': 'mtopjsonp2', 'data': data}
+              'sign': sign, 'api': 'mtop.trade.order.build.h5', 'v': '4.0',
+              'type': 'originaljson', 'ttid': '#t#ip##_h5_2019', 'isSec': '1', 'ecode': '1', 'AntiFlood': 'true',
+              'AntiCreep': 'true', 'H5Request': 'true', 'dataType': 'jsonp'}
+    # &smToken=as&sm=e
 
-    url = 'https://h5api.m.taobao.com/h5/mtop.trade.query.bag/5.0/?' + \
+    url = 'https://h5api.m.taobao.com/h5/mtop.trade.order.build.h5/4.0/?' + \
         parse.urlencode(params)
     headers = {
         "Accept": 'application/json',
@@ -150,30 +158,22 @@ def get_buy_cart(good_id):
         "Content-type": 'application/x-www-form-urlencoded',
         "Cookie": user_cookie,
     }
-    jsonp = requests_session.get(url, headers=headers).text
-    response = jsonp[jsonp.index("(") + 1: jsonp.rindex(")")]
-    data = json.loads(response)
-    print("%s query.bag %s " % (datetime.datetime.now().strftime(
-        '%Y-%m-%d %H:%M:%S.%f'), data.get('ret')))
-    settlement = ''
-    canCheck = False
+    data = requests_session.post(url, headers=headers, data={'data': buyNow})
+    print(data.content)
+    data = data.json()
+    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+    print("%s order.build %s " % (now, data.get('ret')))
     if "SUCCESS" not in data.get('ret')[0]:
         fail_sys_sleep(data)
-        flag = False
-    else:
-        flag = True
-        item_like = ['item_']
-        for x in data.get('data').get('data').items():
-            for y in item_like:
-                if y in x[0]:
-                    if good_id == x[1]['fields']['itemId']:
-                        settlement = x[1]['fields']['settlement']
-                        canCheck = x[1]['fields']['canCheck']
-                        break
+        return flag, data
 
-    buy_now = {"buyNow": False, "buyParam": settlement,
-               "spm": "a21202.12579950.settlement-bar.0"}
-    return flag, canCheck, json.dumps(buy_now)
+    item_info = [x[1] for x in data.get('data').get(
+        'data').items() if "itemInfo_" in x[0]]
+    is_disabled = item_info[0].get('fields').get('disabled')
+    if is_disabled == 'false':
+        flag = True
+
+    return flag, data
 
 
 def fail_sys_sleep(data):
