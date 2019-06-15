@@ -93,6 +93,36 @@ print(user_cookie)
 requests_session = requests.session()
 
 
+def alipay(url):
+    flag = False
+    browser.get(url)
+    message = re.findall(
+        '<div class="am-dialog-text".*?>(.*?)</div>', browser.page_source)
+    if '#CCCCCC' in message:
+        print('%s alipay %s' % (datetime.datetime.now().strftime(
+            '%Y-%m-%d %H:%M:%S.%f'), message[0]))
+        return flag
+    browser.find_element_by_xpath("//div[@class='am-section']/button").click()
+    for p in pwd:
+        # 0.1秒内随机
+        time.sleep(random.randint(1, 200) / 1000)
+        browser.find_element_by_id("spwd_unencrypt").send_keys(p)
+    print("%s alipay done" %
+          (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')))
+    time.sleep(1)
+    message = re.findall(
+        '<div class="am-dialog-text".*?>(.*?)</div>', browser.page_source)
+    if len(message) == 0:
+        message = re.findall(
+            '<div class="am-message[\w\W]*<p><span>([\w\W]*?)</span>', browser.page_source)
+    if len(message) == 0:
+        message = 'no message'
+
+    print('%s alipay %s' % (datetime.datetime.now().strftime(
+        '%Y-%m-%d %H:%M:%S.%f'), message[0]))
+    return True
+
+
 def create_order(build_data):
     flag = False
     item_like = ['item_', 'itemInfo_', 'service_yfx_',
@@ -146,15 +176,6 @@ def create_order(build_data):
     else:
         fail_sys_sleep(json_data)
     return flag, json_data
-
-
-def get_sign_val(d):
-    _m_h5_tk = re.findall(r"_m_h5_tk=([^;]*)", user_cookie)[0]
-    t = str(int(time.time() * 1000))
-    token = _m_h5_tk.split('_')[0]
-    str_sign = '&'.join([token, t, appKey, str(d)])
-    sign = hashlib.md5(str_sign.encode('utf-8')).hexdigest()
-    return sign, t
 
 
 def get_buy_cart(good_id):
@@ -355,36 +376,6 @@ def fail_sys_sleep(data):
         pass
 
 
-def alipay(url):
-    flag = False
-    browser.get(url)
-    message = re.findall(
-        '<div class="am-dialog-text".*?>(.*?)</div>', browser.page_source)
-    if '#CCCCCC' in message:
-        print('%s alipay %s' % (datetime.datetime.now().strftime(
-            '%Y-%m-%d %H:%M:%S.%f'), message[0]))
-        return flag
-    browser.find_element_by_xpath("//div[@class='am-section']/button").click()
-    for p in pwd:
-        # 0.1秒内随机
-        time.sleep(random.randint(1, 200) / 1000)
-        browser.find_element_by_id("spwd_unencrypt").send_keys(p)
-    print("%s alipay done" %
-          (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')))
-    time.sleep(1)
-    message = re.findall(
-        '<div class="am-dialog-text".*?>(.*?)</div>', browser.page_source)
-    if len(message) == 0:
-        message = re.findall(
-            '<div class="am-message[\w\W]*<p><span>([\w\W]*?)</span>', browser.page_source)
-    if len(message) == 0:
-        message = 'no message'
-
-    print('%s alipay %s' % (datetime.datetime.now().strftime(
-        '%Y-%m-%d %H:%M:%S.%f'), message[0]))
-    return True
-
-
 def build_order(buyNow):
     flag = False
     sign, t = get_sign_val(buyNow)
@@ -420,6 +411,15 @@ def build_order(buyNow):
         flag = True
 
     return flag, data
+
+
+def get_sign_val(d):
+    _m_h5_tk = re.findall(r"_m_h5_tk=([^;]*)", user_cookie)[0]
+    t = str(int(time.time() * 1000))
+    token = _m_h5_tk.split('_')[0]
+    str_sign = '&'.join([token, t, appKey, str(d)])
+    sign = hashlib.md5(str_sign.encode('utf-8')).hexdigest()
+    return sign, t
 
 
 while True:
