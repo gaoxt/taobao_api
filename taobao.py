@@ -8,6 +8,20 @@ import datetime
 import time
 
 
+def login():
+    # 打开淘宝登录页，并进行扫码登录
+    browser.get("https://www.taobao.com")
+    time.sleep(1)
+    if browser.find_element_by_link_text("亲，请登录"):
+        browser.find_element_by_link_text("亲，请登录").click()
+        print(browser.find_element_by_id("J_QRCodeImg").text)
+        print("请在15秒内完成扫码")
+        time.sleep(5)
+    time.sleep(1)
+    now = datetime.datetime.now()
+    print('%s login success' % now.strftime('%Y-%m-%d %H:%M:%S'))
+
+
 def buy(times):
     flag = True
 
@@ -36,20 +50,6 @@ def buy(times):
             print("%s 重新下单" % now)
 
     return flag
-
-
-def login():
-    # 打开淘宝登录页，并进行扫码登录
-    browser.get("https://www.taobao.com")
-    time.sleep(1)
-    if browser.find_element_by_link_text("亲，请登录"):
-        browser.find_element_by_link_text("亲，请登录").click()
-        print(browser.find_element_by_id("J_QRCodeImg").text)
-        print("请在15秒内完成扫码")
-        time.sleep(5)
-    time.sleep(1)
-    now = datetime.datetime.now()
-    print('%s login success' % now.strftime('%Y-%m-%d %H:%M:%S'))
 
 
 if __name__ == "__main__":
