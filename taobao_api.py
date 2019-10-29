@@ -130,13 +130,59 @@ def build_order(buyNow):
     return flag, data
 
 
-def get_sign_val(d):
-    _m_h5_tk = re.findall(r"_m_h5_tk=([^;]*)", user_cookie)[0]
-    t = str(int(time.time() * 1000))
-    token = _m_h5_tk.split('_')[0]
-    str_sign = '&'.join([token, t, appKey, str(d)])
-    sign = hashlib.md5(str_sign.encode('utf-8')).hexdigest()
-    return sign, t
+def create_order(build_data):
+    flag = False
+    item_like = ['item_', 'itemInfo_', 'service_yfx_',
+                 'invoice_', 'promotion_', 'deliveryDate_']
+    item_hit = ['anonymous_1', 'address_1', 'voucher_1',
+                'confirmOrder_1', 'ncCheckCode_ncCheckCode1', 'submitOrder_1']
+
+    params_data_children = {}
+    for x in build_data.get('data').get('data').items():
+        for y in item_hit:
+            if y == x[0]:
+                params_data_children[x[0]] = x[1]
+                break
+
+        for y in item_like:
+            if y in x[0]:
+                params_data_children[x[0]] = x[1]
+
+    params_data = {
+        "operator": None,
+        "data": json.dumps(params_data_children),
+        "linkage": json.dumps(build_data.get('data').get('linkage')),
+        "hierarchy": json.dumps(build_data.get('data').get('hierarchy')),
+        "lifecycle": None
+    }
+    data = json.dumps({"params": json.dumps(params_data)},
+                      separators=(',', ':'), ensure_ascii=False)
+    sign, t = get_sign_val(data)
+    params3 = {'jsv': '2.5.1', 'appKey': appKey, 't': t,
+               'sign': sign, 'v': '4.0', 'post': '1', 'type': 'originaljson', 'timeout': '15000',
+               'api': 'mtop.trade.order.create.h5',
+               'isSec': '1', 'ecode': '1', 'AntiFlood': 'true', 'dataType': 'jsonp', 'ttid': '#t#ip##_h5_2019'}
+
+    url = 'https://h5api.m.taobao.com/h5/mtop.trade.order.create.h5/4.0/?' + \
+        parse.urlencode(params3)
+    headers = {
+        "Accept": 'application/json',
+        "Origin": 'https://main.m.taobao.com',
+        "User-Agent": User_Agent,
+        "Content-type": 'application/x-www-form-urlencoded',
+        "Cookie": user_cookie,
+    }
+    json_data = requests_session.post(
+        url, headers=headers, data={'data': data})
+    print(json_data.text)
+    json_data = json_data.json()
+    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+    print("%s order.create %s " % (now, json_data.get('ret')))
+    if "SUCCESS" in json_data.get('ret')[0]:
+        flag = True
+    else:
+        fail_sys_sleep(json_data)
+    return flag, json_data
 
 
 def get_buy_cart(good_id):
@@ -309,6 +355,15 @@ def get_buy_cart(good_id):
 # return flag
 
 
+def get_sign_val(d):
+    _m_h5_tk = re.findall(r"_m_h5_tk=([^;]*)", user_cookie)[0]
+    t = str(int(time.time() * 1000))
+    token = _m_h5_tk.split('_')[0]
+    str_sign = '&'.join([token, t, appKey, str(d)])
+    sign = hashlib.md5(str_sign.encode('utf-8')).hexdigest()
+    return sign, t
+
+
 def alipay(url):
     flag = False
     browser.get(url)
@@ -365,61 +420,6 @@ def fail_sys_sleep(data):
             # print("%s verify %s " % (now, verify_flag))
     else:
         pass
-
-
-def create_order(build_data):
-    flag = False
-    item_like = ['item_', 'itemInfo_', 'service_yfx_',
-                 'invoice_', 'promotion_', 'deliveryDate_']
-    item_hit = ['anonymous_1', 'address_1', 'voucher_1',
-                'confirmOrder_1', 'ncCheckCode_ncCheckCode1', 'submitOrder_1']
-
-    params_data_children = {}
-    for x in build_data.get('data').get('data').items():
-        for y in item_hit:
-            if y == x[0]:
-                params_data_children[x[0]] = x[1]
-                break
-
-        for y in item_like:
-            if y in x[0]:
-                params_data_children[x[0]] = x[1]
-
-    params_data = {
-        "operator": None,
-        "data": json.dumps(params_data_children),
-        "linkage": json.dumps(build_data.get('data').get('linkage')),
-        "hierarchy": json.dumps(build_data.get('data').get('hierarchy')),
-        "lifecycle": None
-    }
-    data = json.dumps({"params": json.dumps(params_data)},
-                      separators=(',', ':'), ensure_ascii=False)
-    sign, t = get_sign_val(data)
-    params3 = {'jsv': '2.5.1', 'appKey': appKey, 't': t,
-               'sign': sign, 'v': '4.0', 'post': '1', 'type': 'originaljson', 'timeout': '15000',
-               'api': 'mtop.trade.order.create.h5',
-               'isSec': '1', 'ecode': '1', 'AntiFlood': 'true', 'dataType': 'jsonp', 'ttid': '#t#ip##_h5_2019'}
-
-    url = 'https://h5api.m.taobao.com/h5/mtop.trade.order.create.h5/4.0/?' + \
-        parse.urlencode(params3)
-    headers = {
-        "Accept": 'application/json',
-        "Origin": 'https://main.m.taobao.com',
-        "User-Agent": User_Agent,
-        "Content-type": 'application/x-www-form-urlencoded',
-        "Cookie": user_cookie,
-    }
-    json_data = requests_session.post(
-        url, headers=headers, data={'data': data})
-    print(json_data.text)
-    json_data = json_data.json()
-    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-    print("%s order.create %s " % (now, json_data.get('ret')))
-    if "SUCCESS" in json_data.get('ret')[0]:
-        flag = True
-    else:
-        fail_sys_sleep(json_data)
-    return flag, json_data
 
 
 while True:
