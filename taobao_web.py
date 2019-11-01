@@ -26,14 +26,40 @@ appKey = '12574478'
 requests_session = requests.session()
 
 
-def get_sign_val(d):
-    print(user_cookie, d)
-    _m_h5_tk = re.findall(r"_tb_token_=([^;]*)", user_cookie)[0]
-    t = str(int(time.time() * 1000))
-    token = _m_h5_tk.split('_')[0]
-    str_sign = '&'.join([token, t, appKey, str(d)])
-    sign = hashlib.md5(str_sign.encode('utf-8')).hexdigest()
-    return sign, t
+def build_order(buyNow):
+    flag = False
+    sign, t = get_sign_val(buyNow)
+    params = {'jsv': '2.5.1', 'appKey': appKey, 't': t,
+              'sign': sign, 'api': 'mtop.trade.order.build.h5', 'v': '4.0',
+              'type': 'originaljson', 'ttid': '#t#ip##_h5_2019', 'isSec': '1', 'ecode': '1', 'AntiFlood': 'true',
+              'AntiCreep': 'true', 'H5Request': 'true', 'dataType': 'jsonp'}
+    # &smToken=as&sm=e
+
+    url = 'https://h5api.m.taobao.com/h5/mtop.trade.order.build.h5/4.0/?' + \
+        parse.urlencode(params)
+    headers = {
+        "Accept": 'application/json',
+        "Origin": 'https://main.m.taobao.com',
+        "User-Agent": User_Agent,
+        "Content-type": 'application/x-www-form-urlencoded',
+        "Cookie": user_cookie,
+    }
+    data = requests_session.post(url, headers=headers, data={'data': buyNow})
+    print(data.content)
+    data = data.json()
+    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+    print("%s order.build %s " % (now, data.get('ret')))
+    if "SUCCESS" not in data.get('ret')[0]:
+        fail_sys_sleep(data)
+        return flag, data
+
+    item_info = [x[1] for x in data.get('data').get(
+        'data').items() if "itemInfo_" in x[0]]
+    is_disabled = item_info[0].get('fields').get('disabled')
+    if is_disabled == 'false':
+        flag = True
+
+    return flag, data
 
 
 def create_order(build_data):
@@ -91,6 +117,16 @@ def create_order(build_data):
     return flag, json_data
 
 
+def get_sign_val(d):
+    print(user_cookie, d)
+    _m_h5_tk = re.findall(r"_tb_token_=([^;]*)", user_cookie)[0]
+    t = str(int(time.time() * 1000))
+    token = _m_h5_tk.split('_')[0]
+    str_sign = '&'.join([token, t, appKey, str(d)])
+    sign = hashlib.md5(str_sign.encode('utf-8')).hexdigest()
+    return sign, t
+
+
 def get_buy_cart(good_id):
     exParams = {
         "mergeCombo": True,
@@ -138,42 +174,6 @@ def get_buy_cart(good_id):
     buy_now = {"buyNow": False, "buyParam": settlement,
                "spm": "a21202.12579950.settlement-bar.0"}
     return flag, canCheck, json.dumps(buy_now)
-
-
-def build_order(buyNow):
-    flag = False
-    sign, t = get_sign_val(buyNow)
-    params = {'jsv': '2.5.1', 'appKey': appKey, 't': t,
-              'sign': sign, 'api': 'mtop.trade.order.build.h5', 'v': '4.0',
-              'type': 'originaljson', 'ttid': '#t#ip##_h5_2019', 'isSec': '1', 'ecode': '1', 'AntiFlood': 'true',
-              'AntiCreep': 'true', 'H5Request': 'true', 'dataType': 'jsonp'}
-    # &smToken=as&sm=e
-
-    url = 'https://h5api.m.taobao.com/h5/mtop.trade.order.build.h5/4.0/?' + \
-        parse.urlencode(params)
-    headers = {
-        "Accept": 'application/json',
-        "Origin": 'https://main.m.taobao.com',
-        "User-Agent": User_Agent,
-        "Content-type": 'application/x-www-form-urlencoded',
-        "Cookie": user_cookie,
-    }
-    data = requests_session.post(url, headers=headers, data={'data': buyNow})
-    print(data.content)
-    data = data.json()
-    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-    print("%s order.build %s " % (now, data.get('ret')))
-    if "SUCCESS" not in data.get('ret')[0]:
-        fail_sys_sleep(data)
-        return flag, data
-
-    item_info = [x[1] for x in data.get('data').get(
-        'data').items() if "itemInfo_" in x[0]]
-    is_disabled = item_info[0].get('fields').get('disabled')
-    if is_disabled == 'false':
-        flag = True
-
-    return flag, data
 
 
 def fail_sys_sleep(data):
