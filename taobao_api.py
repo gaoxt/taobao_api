@@ -93,6 +93,36 @@ print(user_cookie)
 requests_session = requests.session()
 
 
+def alipay(url):
+    flag = False
+    browser.get(url)
+    message = re.findall(
+        '<div class="am-dialog-text".*?>(.*?)</div>', browser.page_source)
+    if '#CCCCCC' in message:
+        print('%s alipay %s' % (datetime.datetime.now().strftime(
+            '%Y-%m-%d %H:%M:%S.%f'), message[0]))
+        return flag
+    browser.find_element_by_xpath("//div[@class='am-section']/button").click()
+    for p in pwd:
+        # 0.1秒内随机
+        time.sleep(random.randint(1, 200) / 1000)
+        browser.find_element_by_id("spwd_unencrypt").send_keys(p)
+    print("%s alipay done" %
+          (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')))
+    time.sleep(1)
+    message = re.findall(
+        '<div class="am-dialog-text".*?>(.*?)</div>', browser.page_source)
+    if len(message) == 0:
+        message = re.findall(
+            '<div class="am-message[\w\W]*<p><span>([\w\W]*?)</span>', browser.page_source)
+    if len(message) == 0:
+        message = 'no message'
+
+    print('%s alipay %s' % (datetime.datetime.now().strftime(
+        '%Y-%m-%d %H:%M:%S.%f'), message[0]))
+    return True
+
+
 def create_order(build_data):
     flag = False
     item_like = ['item_', 'itemInfo_', 'service_yfx_',
@@ -146,15 +176,6 @@ def create_order(build_data):
     else:
         fail_sys_sleep(json_data)
     return flag, json_data
-
-
-def get_sign_val(d):
-    _m_h5_tk = re.findall(r"_m_h5_tk=([^;]*)", user_cookie)[0]
-    t = str(int(time.time() * 1000))
-    token = _m_h5_tk.split('_')[0]
-    str_sign = '&'.join([token, t, appKey, str(d)])
-    sign = hashlib.md5(str_sign.encode('utf-8')).hexdigest()
-    return sign, t
 
 
 def get_buy_cart(good_id):
@@ -327,62 +348,13 @@ def get_buy_cart(good_id):
 # return flag
 
 
-def fail_sys_sleep(data):
-    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-
-    if len(data.get('ret')) == 1:
-        if "FAIL_SYS_TOKEN_EXOIRED" in data.get('ret')[0]:
-            print("%s cookie timeout" % (now))
-            exit()
-
-        if "FAIL_SYS_TRAFFIC_LIMIT" in data.get('ret')[0]:
-            print("%s need sleep", now)
-
-        if "P-01415-14-15-004" in data.get('ret')[0]:
-            time.sleep(2)
-            print("%s 系统繁忙，请稍候再试" % (now))
-
-    # ['RGV587_ERROR::SM::亲,访问被拒绝了哦!请检查是否使用了代理软件或VPN哦~', 'FAIL_SYS_USER_VALIDATE::亲,访问被拒绝了哦!请检查是否使用了代理软件或VPN哦~']
-    elif len(data.get('ret')) == 2:
-        if "FAIL_SYS_USER_VALIDATE" in data.get('ret')[0] or "FAIL_SYS_USER_VALIDATE" in data.get('ret')[1]:
-            print("%s need verify !!!" % (now))
-            exit()
-            # punish_url = data.get('data').get('url')
-            # verify_flag = verify_action(punish_url)
-            # now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-            # print("%s verify %s " % (now, verify_flag))
-    else:
-        pass
-
-
-def alipay(url):
-    flag = False
-    browser.get(url)
-    message = re.findall(
-        '<div class="am-dialog-text".*?>(.*?)</div>', browser.page_source)
-    if '#CCCCCC' in message:
-        print('%s alipay %s' % (datetime.datetime.now().strftime(
-            '%Y-%m-%d %H:%M:%S.%f'), message[0]))
-        return flag
-    browser.find_element_by_xpath("//div[@class='am-section']/button").click()
-    for p in pwd:
-        # 0.1秒内随机
-        time.sleep(random.randint(1, 200) / 1000)
-        browser.find_element_by_id("spwd_unencrypt").send_keys(p)
-    print("%s alipay done" %
-          (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')))
-    time.sleep(1)
-    message = re.findall(
-        '<div class="am-dialog-text".*?>(.*?)</div>', browser.page_source)
-    if len(message) == 0:
-        message = re.findall(
-            '<div class="am-message[\w\W]*<p><span>([\w\W]*?)</span>', browser.page_source)
-    if len(message) == 0:
-        message = 'no message'
-
-    print('%s alipay %s' % (datetime.datetime.now().strftime(
-        '%Y-%m-%d %H:%M:%S.%f'), message[0]))
-    return True
+def get_sign_val(d):
+    _m_h5_tk = re.findall(r"_m_h5_tk=([^;]*)", user_cookie)[0]
+    t = str(int(time.time() * 1000))
+    token = _m_h5_tk.split('_')[0]
+    str_sign = '&'.join([token, t, appKey, str(d)])
+    sign = hashlib.md5(str_sign.encode('utf-8')).hexdigest()
+    return sign, t
 
 
 def build_order(buyNow):
@@ -420,6 +392,34 @@ def build_order(buyNow):
         flag = True
 
     return flag, data
+
+
+def fail_sys_sleep(data):
+    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+
+    if len(data.get('ret')) == 1:
+        if "FAIL_SYS_TOKEN_EXOIRED" in data.get('ret')[0]:
+            print("%s cookie timeout" % (now))
+            exit()
+
+        if "FAIL_SYS_TRAFFIC_LIMIT" in data.get('ret')[0]:
+            print("%s need sleep", now)
+
+        if "P-01415-14-15-004" in data.get('ret')[0]:
+            time.sleep(2)
+            print("%s 系统繁忙，请稍候再试" % (now))
+
+    # ['RGV587_ERROR::SM::亲,访问被拒绝了哦!请检查是否使用了代理软件或VPN哦~', 'FAIL_SYS_USER_VALIDATE::亲,访问被拒绝了哦!请检查是否使用了代理软件或VPN哦~']
+    elif len(data.get('ret')) == 2:
+        if "FAIL_SYS_USER_VALIDATE" in data.get('ret')[0] or "FAIL_SYS_USER_VALIDATE" in data.get('ret')[1]:
+            print("%s need verify !!!" % (now))
+            exit()
+            # punish_url = data.get('data').get('url')
+            # verify_flag = verify_action(punish_url)
+            # now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+            # print("%s verify %s " % (now, verify_flag))
+    else:
+        pass
 
 
 while True:
