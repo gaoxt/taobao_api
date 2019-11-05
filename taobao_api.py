@@ -93,13 +93,32 @@ print(user_cookie)
 requests_session = requests.session()
 
 
-def get_sign_val(d):
-    _m_h5_tk = re.findall(r"_m_h5_tk=([^;]*)", user_cookie)[0]
-    t = str(int(time.time() * 1000))
-    token = _m_h5_tk.split('_')[0]
-    str_sign = '&'.join([token, t, appKey, str(d)])
-    sign = hashlib.md5(str_sign.encode('utf-8')).hexdigest()
-    return sign, t
+def fail_sys_sleep(data):
+    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+
+    if len(data.get('ret')) == 1:
+        if "FAIL_SYS_TOKEN_EXOIRED" in data.get('ret')[0]:
+            print("%s cookie timeout" % (now))
+            exit()
+
+        if "FAIL_SYS_TRAFFIC_LIMIT" in data.get('ret')[0]:
+            print("%s need sleep", now)
+
+        if "P-01415-14-15-004" in data.get('ret')[0]:
+            time.sleep(2)
+            print("%s 系统繁忙，请稍候再试" % (now))
+
+    # ['RGV587_ERROR::SM::亲,访问被拒绝了哦!请检查是否使用了代理软件或VPN哦~', 'FAIL_SYS_USER_VALIDATE::亲,访问被拒绝了哦!请检查是否使用了代理软件或VPN哦~']
+    elif len(data.get('ret')) == 2:
+        if "FAIL_SYS_USER_VALIDATE" in data.get('ret')[0] or "FAIL_SYS_USER_VALIDATE" in data.get('ret')[1]:
+            print("%s need verify !!!" % (now))
+            exit()
+            # punish_url = data.get('data').get('url')
+            # verify_flag = verify_action(punish_url)
+            # now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+            # print("%s verify %s " % (now, verify_flag))
+    else:
+        pass
 
 
 def build_order(buyNow):
@@ -309,6 +328,15 @@ def get_buy_cart(good_id):
 # return flag
 
 
+def get_sign_val(d):
+    _m_h5_tk = re.findall(r"_m_h5_tk=([^;]*)", user_cookie)[0]
+    t = str(int(time.time() * 1000))
+    token = _m_h5_tk.split('_')[0]
+    str_sign = '&'.join([token, t, appKey, str(d)])
+    sign = hashlib.md5(str_sign.encode('utf-8')).hexdigest()
+    return sign, t
+
+
 def alipay(url):
     flag = False
     browser.get(url)
@@ -392,34 +420,6 @@ def create_order(build_data):
     else:
         fail_sys_sleep(json_data)
     return flag, json_data
-
-
-def fail_sys_sleep(data):
-    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-
-    if len(data.get('ret')) == 1:
-        if "FAIL_SYS_TOKEN_EXOIRED" in data.get('ret')[0]:
-            print("%s cookie timeout" % (now))
-            exit()
-
-        if "FAIL_SYS_TRAFFIC_LIMIT" in data.get('ret')[0]:
-            print("%s need sleep", now)
-
-        if "P-01415-14-15-004" in data.get('ret')[0]:
-            time.sleep(2)
-            print("%s 系统繁忙，请稍候再试" % (now))
-
-    # ['RGV587_ERROR::SM::亲,访问被拒绝了哦!请检查是否使用了代理软件或VPN哦~', 'FAIL_SYS_USER_VALIDATE::亲,访问被拒绝了哦!请检查是否使用了代理软件或VPN哦~']
-    elif len(data.get('ret')) == 2:
-        if "FAIL_SYS_USER_VALIDATE" in data.get('ret')[0] or "FAIL_SYS_USER_VALIDATE" in data.get('ret')[1]:
-            print("%s need verify !!!" % (now))
-            exit()
-            # punish_url = data.get('data').get('url')
-            # verify_flag = verify_action(punish_url)
-            # now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-            # print("%s verify %s " % (now, verify_flag))
-    else:
-        pass
 
 
 while True:
