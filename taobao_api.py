@@ -62,19 +62,15 @@ if user_cookie == '':
     qr.print_ascii(invert=True)
     while True:
         if 'login.taobao.com' not in browser.current_url:
-            print("%s : success %s " % (datetime.datetime.now().strftime(
-                '%Y-%m-%d %H:%M:%S.%f'), browser.current_url))
-            browser.get(
-                'https://main.m.taobao.com/cart/index.html?cartFrom=taobao_client&spm=a215s.7406091.toolbar.i2')
+            print("%s : success %s " % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'), browser.current_url))
+            browser.get('https://main.m.taobao.com/cart/index.html?cartFrom=taobao_client&spm=a215s.7406091.toolbar.i2')
             break
-        print("%s : %s" % (datetime.datetime.now().strftime(
-            '%Y-%m-%d %H:%M:%S.%f'), browser.current_url))
+        print("%s : %s" % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'), browser.current_url))
         time.sleep(2)
 
     user_cookie = ''
     for i in range(len(browser.get_cookies())):
-        user_cookie += browser.get_cookies()[i].get('name') + \
-            '=' + browser.get_cookies()[i].get('value') + ';'
+        user_cookie += browser.get_cookies()[i].get('name') + '=' + browser.get_cookies()[i].get('value') + ';'
 
 print(user_cookie)
 # options = webdriver.ChromeOptions()
@@ -93,87 +89,37 @@ print(user_cookie)
 requests_session = requests.session()
 
 
-def fail_sys_sleep(data):
-    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-
-    if len(data.get('ret')) == 1:
-        if "FAIL_SYS_TOKEN_EXOIRED" in data.get('ret')[0]:
-            print("%s cookie timeout" % (now))
-            exit()
-
-        if "FAIL_SYS_TRAFFIC_LIMIT" in data.get('ret')[0]:
-            print("%s need sleep", now)
-
-        if "P-01415-14-15-004" in data.get('ret')[0]:
-            time.sleep(2)
-            print("%s 系统繁忙，请稍候再试" % (now))
-
-    # ['RGV587_ERROR::SM::亲,访问被拒绝了哦!请检查是否使用了代理软件或VPN哦~', 'FAIL_SYS_USER_VALIDATE::亲,访问被拒绝了哦!请检查是否使用了代理软件或VPN哦~']
-    elif len(data.get('ret')) == 2:
-        if "FAIL_SYS_USER_VALIDATE" in data.get('ret')[0] or "FAIL_SYS_USER_VALIDATE" in data.get('ret')[1]:
-            print("%s need verify !!!" % (now))
-            exit()
-            # punish_url = data.get('data').get('url')
-            # verify_flag = verify_action(punish_url)
-            # now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-            # print("%s verify %s " % (now, verify_flag))
-    else:
-        pass
+def get_sign_val(d):
+    _m_h5_tk = re.findall(r"_m_h5_tk=([^;]*)", user_cookie)[0]
+    t = str(int(time.time() * 1000))
+    token = _m_h5_tk.split('_')[0]
+    str_sign = '&'.join([token, t, appKey, str(d)])
+    sign = hashlib.md5(str_sign.encode('utf-8')).hexdigest()
+    return sign, t
 
 
-def create_order(build_data):
+def alipay(url):
     flag = False
-    item_like = ['item_', 'itemInfo_', 'service_yfx_',
-                 'invoice_', 'promotion_', 'deliveryDate_']
-    item_hit = ['anonymous_1', 'address_1', 'voucher_1',
-                'confirmOrder_1', 'ncCheckCode_ncCheckCode1', 'submitOrder_1']
+    browser.get(url)
+    message = re.findall('<div class="am-dialog-text".*?>(.*?)</div>', browser.page_source)
+    if '#CCCCCC' in message:
+        print('%s alipay %s' % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'), message[0]))
+        return flag
+    browser.find_element_by_xpath("//div[@class='am-section']/button").click()
+    for p in pwd:
+        # 0.1秒内随机
+        time.sleep(random.randint(1, 200) / 1000)
+        browser.find_element_by_id("spwd_unencrypt").send_keys(p)
+    print("%s alipay done" % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')))
+    time.sleep(1)
+    message = re.findall('<div class="am-dialog-text".*?>(.*?)</div>', browser.page_source)
+    if len(message) == 0:
+        message = re.findall('<div class="am-message[\w\W]*<p><span>([\w\W]*?)</span>', browser.page_source)
+    if len(message) == 0:
+        message = 'no message'
 
-    params_data_children = {}
-    for x in build_data.get('data').get('data').items():
-        for y in item_hit:
-            if y == x[0]:
-                params_data_children[x[0]] = x[1]
-                break
-
-        for y in item_like:
-            if y in x[0]:
-                params_data_children[x[0]] = x[1]
-
-    params_data = {
-        "operator": None,
-        "data": json.dumps(params_data_children),
-        "linkage": json.dumps(build_data.get('data').get('linkage')),
-        "hierarchy": json.dumps(build_data.get('data').get('hierarchy')),
-        "lifecycle": None
-    }
-    data = json.dumps({"params": json.dumps(params_data)},
-                      separators=(',', ':'), ensure_ascii=False)
-    sign, t = get_sign_val(data)
-    params3 = {'jsv': '2.5.1', 'appKey': appKey, 't': t,
-               'sign': sign, 'v': '4.0', 'post': '1', 'type': 'originaljson', 'timeout': '15000',
-               'api': 'mtop.trade.order.create.h5',
-               'isSec': '1', 'ecode': '1', 'AntiFlood': 'true', 'dataType': 'jsonp', 'ttid': '#t#ip##_h5_2019'}
-
-    url = 'https://h5api.m.taobao.com/h5/mtop.trade.order.create.h5/4.0/?' + \
-        parse.urlencode(params3)
-    headers = {
-        "Accept": 'application/json',
-        "Origin": 'https://main.m.taobao.com',
-        "User-Agent": User_Agent,
-        "Content-type": 'application/x-www-form-urlencoded',
-        "Cookie": user_cookie,
-    }
-    json_data = requests_session.post(
-        url, headers=headers, data={'data': data})
-    print(json_data.text)
-    json_data = json_data.json()
-    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-    print("%s order.create %s " % (now, json_data.get('ret')))
-    if "SUCCESS" in json_data.get('ret')[0]:
-        flag = True
-    else:
-        fail_sys_sleep(json_data)
-    return flag, json_data
+    print('%s alipay %s' % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'), message[0]))
+    return True
 
 
 def get_buy_cart(good_id):
@@ -182,16 +128,14 @@ def get_buy_cart(good_id):
         "version": '1.1.1',
         "globalSell": 1,
     }
-    data = json.dumps({"isPage": True, "extStatus": 0,
-                       "netType": 0, "exParams": json.dumps(exParams)})
+    data = json.dumps({"isPage": True, "extStatus": 0, "netType": 0, "exParams": json.dumps(exParams)})
     sign, t = get_sign_val(data)
     params = {'jsv': '2.5.1', 'appKey': appKey, 't': t,
               'sign': sign, 'api': 'mtop.trade.query.bag', 'v': '5.0',
               'type': 'jsonp', 'ttid': 'h5', 'isSec': '0', 'ecode': '1', 'AntiFlood': 'true',
               'AntiCreep': 'true', 'H5Request': 'true', 'dataType': 'jsonp', 'callback': 'mtopjsonp2', 'data': data}
 
-    url = 'https://h5api.m.taobao.com/h5/mtop.trade.query.bag/5.0/?' + \
-        parse.urlencode(params)
+    url = 'https://h5api.m.taobao.com/h5/mtop.trade.query.bag/5.0/?' + parse.urlencode(params)
     headers = {
         "Accept": 'application/json',
         "Origin": 'https://main.m.taobao.com',
@@ -205,8 +149,7 @@ def get_buy_cart(good_id):
     response = jsonp[jsonp.index("(") + 1: jsonp.rindex(")")]
     data = json.loads(response)
 
-    print("%s query.bag %s " % (datetime.datetime.now().strftime(
-        '%Y-%m-%d %H:%M:%S.%f'), data.get('ret')))
+    print("%s query.bag %s " % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'), data.get('ret')))
     settlement = ''
     canCheck = False
     # aliyun_time = int(data.get('data').get('global').get('controlParas').get('time'))
@@ -233,8 +176,7 @@ def get_buy_cart(good_id):
                         canCheck = x[1]['fields']['canCheck']
                         break
 
-    buy_now = {"buyNow": False, "buyParam": settlement,
-               "spm": "a21202.12579950.settlement-bar.0"}
+    buy_now = {"buyNow": False, "buyParam": settlement, "spm": "a21202.12579950.settlement-bar.0"}
     return flag, canCheck, json.dumps(buy_now)
 
 
@@ -267,7 +209,6 @@ def get_buy_cart(good_id):
 # exit()
 
 # def verify_action(punish_url):
-# user_cookie = ''
 # punish_url = "https://h5api.m.taobao.com:443//h5/mtop.trade.order.build.h5/4.0/_____tmd_____/punish?x5secdata=5e0c8e1365474455070961b803bd560607b52cabf5960afff39b64ce58073f781bfb15e0f149ea97f57ae941e5007f71e00224e112fff7e0d9d151f880c6122aeb2bc16b1dbc91ea592f0222d32ec23f1976b91a091e5174a4153ee53f360b269783bbae415916f4e376d892cf8ccf5de774c279781f0a38323d598028a5b64fbdd5c67c684bed5a02cc040080d6031a857e1e610dacc61de563a6b9aa773596f81fff07998f8acfa877abb3f15d770daa6574f817e057f32f85e9086384ba384ff05e8880d08bb22a4955f34ba10716cd53a336f3444e515b0eaf868776b2368bb505aed8c8053301c2fdfd6ca072d78ee96f65385e9e8044603ac2da587c18a3b3e7b92e7a104a939356775160b15068c45899ff2343106c6c98685007b2048b06cf3207fb4622cadb23ac5d92e12dbfcc508cd27518b3557b9baec779a869b2c1397a425abb93dc6495a5ecbe704bef6a3cd44835da8eebba31e12701f0db320c17dc2b67e0ae13d3ede711bee620cee17e05e5c3b772c04cf90f894ea48083cab5c59b9014113fea064a853cf0cdb7e108b3d5af782ab33bb080840b54b4e4fdb669199653e9edf651264a0c972d3123cecd72a2c0fbe78d44e02dc747d4bfec2900ad20df5c2feda956ce3fbf30ddefec7c193422c34f45883fab1d21575d9a678964b11679bf2531504047e854&x5step=2"
 #
 # verify_options = webdriver.ChromeOptions()
@@ -346,15 +287,6 @@ def get_buy_cart(good_id):
 # return flag
 
 
-def get_sign_val(d):
-    _m_h5_tk = re.findall(r"_m_h5_tk=([^;]*)", user_cookie)[0]
-    t = str(int(time.time() * 1000))
-    token = _m_h5_tk.split('_')[0]
-    str_sign = '&'.join([token, t, appKey, str(d)])
-    sign = hashlib.md5(str_sign.encode('utf-8')).hexdigest()
-    return sign, t
-
-
 def build_order(buyNow):
     flag = False
     sign, t = get_sign_val(buyNow)
@@ -364,8 +296,7 @@ def build_order(buyNow):
               'AntiCreep': 'true', 'H5Request': 'true', 'dataType': 'jsonp'}
     # &smToken=as&sm=e
 
-    url = 'https://h5api.m.taobao.com/h5/mtop.trade.order.build.h5/4.0/?' + \
-        parse.urlencode(params)
+    url = 'https://h5api.m.taobao.com/h5/mtop.trade.order.build.h5/4.0/?' + parse.urlencode(params)
     headers = {
         "Accept": 'application/json',
         "Origin": 'https://main.m.taobao.com',
@@ -383,8 +314,7 @@ def build_order(buyNow):
         fail_sys_sleep(data)
         return flag, data
 
-    item_info = [x[1] for x in data.get('data').get(
-        'data').items() if "itemInfo_" in x[0]]
+    item_info = [x[1] for x in data.get('data').get('data').items() if "itemInfo_" in x[0]]
     is_disabled = item_info[0].get('fields').get('disabled')
     if is_disabled == 'false':
         flag = True
@@ -392,34 +322,82 @@ def build_order(buyNow):
     return flag, data
 
 
-def alipay(url):
+def create_order(build_data):
     flag = False
-    browser.get(url)
-    message = re.findall(
-        '<div class="am-dialog-text".*?>(.*?)</div>', browser.page_source)
-    if '#CCCCCC' in message:
-        print('%s alipay %s' % (datetime.datetime.now().strftime(
-            '%Y-%m-%d %H:%M:%S.%f'), message[0]))
-        return flag
-    browser.find_element_by_xpath("//div[@class='am-section']/button").click()
-    for p in pwd:
-        # 0.1秒内随机
-        time.sleep(random.randint(1, 200) / 1000)
-        browser.find_element_by_id("spwd_unencrypt").send_keys(p)
-    print("%s alipay done" %
-          (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')))
-    time.sleep(1)
-    message = re.findall(
-        '<div class="am-dialog-text".*?>(.*?)</div>', browser.page_source)
-    if len(message) == 0:
-        message = re.findall(
-            '<div class="am-message[\w\W]*<p><span>([\w\W]*?)</span>', browser.page_source)
-    if len(message) == 0:
-        message = 'no message'
+    item_like = ['item_', 'itemInfo_', 'service_yfx_', 'invoice_', 'promotion_', 'deliveryDate_']
+    item_hit = ['anonymous_1', 'address_1', 'voucher_1', 'confirmOrder_1', 'ncCheckCode_ncCheckCode1', 'submitOrder_1']
 
-    print('%s alipay %s' % (datetime.datetime.now().strftime(
-        '%Y-%m-%d %H:%M:%S.%f'), message[0]))
-    return True
+    params_data_children = {}
+    for x in build_data.get('data').get('data').items():
+        for y in item_hit:
+            if y == x[0]:
+                params_data_children[x[0]] = x[1]
+                break
+
+        for y in item_like:
+            if y in x[0]:
+                params_data_children[x[0]] = x[1]
+
+    params_data = {
+        "operator": None,
+        "data": json.dumps(params_data_children),
+        "linkage": json.dumps(build_data.get('data').get('linkage')),
+        "hierarchy": json.dumps(build_data.get('data').get('hierarchy')),
+        "lifecycle": None
+    }
+    data = json.dumps({"params": json.dumps(params_data)}, separators=(',', ':'), ensure_ascii=False)
+    sign, t = get_sign_val(data)
+    params3 = {'jsv': '2.5.1', 'appKey': appKey, 't': t,
+               'sign': sign, 'v': '4.0', 'post': '1', 'type': 'originaljson', 'timeout': '15000',
+               'api': 'mtop.trade.order.create.h5',
+               'isSec': '1', 'ecode': '1', 'AntiFlood': 'true', 'dataType': 'jsonp', 'ttid': '#t#ip##_h5_2019'}
+
+    url = 'https://h5api.m.taobao.com/h5/mtop.trade.order.create.h5/4.0/?' + parse.urlencode(params3)
+    headers = {
+        "Accept": 'application/json',
+        "Origin": 'https://main.m.taobao.com',
+        "User-Agent": User_Agent,
+        "Content-type": 'application/x-www-form-urlencoded',
+        "Cookie": user_cookie,
+    }
+    json_data = requests_session.post(url, headers=headers, data={'data': data})
+    print(json_data.text)
+    json_data = json_data.json()
+    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+    print("%s order.create %s " % (now, json_data.get('ret')))
+    if "SUCCESS" in json_data.get('ret')[0]:
+        flag = True
+    else:
+        fail_sys_sleep(json_data)
+    return flag, json_data
+
+
+def fail_sys_sleep(data):
+    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+
+    if len(data.get('ret')) == 1:
+        if "FAIL_SYS_TOKEN_EXOIRED" in data.get('ret')[0]:
+            print("%s cookie timeout" % (now))
+            exit()
+
+        if "FAIL_SYS_TRAFFIC_LIMIT" in data.get('ret')[0]:
+            print("%s need sleep", now)
+
+        if "P-01415-14-15-004" in data.get('ret')[0]:
+            time.sleep(2)
+            print("%s 系统繁忙，请稍候再试" % (now))
+
+    # ['RGV587_ERROR::SM::亲,访问被拒绝了哦!请检查是否使用了代理软件或VPN哦~', 'FAIL_SYS_USER_VALIDATE::亲,访问被拒绝了哦!请检查是否使用了代理软件或VPN哦~']
+    elif len(data.get('ret')) == 2:
+        if "FAIL_SYS_USER_VALIDATE" in data.get('ret')[0] or "FAIL_SYS_USER_VALIDATE" in data.get('ret')[1]:
+            print("%s need verify !!!" % (now))
+            exit()
+            # punish_url = data.get('data').get('url')
+            # verify_flag = verify_action(punish_url)
+            # now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+            # print("%s verify %s " % (now, verify_flag))
+    else:
+        pass
 
 
 while True:
