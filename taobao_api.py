@@ -17,7 +17,8 @@ from config import global_config
 from timer import Timer
 seckill_timers = Timer()
 
-User_Agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36'
+User_Agent = global_config.getRaw('config','user_agent')
+
 
 # 抢购前最好重新登录一遍避免过期
 times = global_config.getRaw('config','buy_time')
@@ -68,12 +69,13 @@ def get_buy_cart(good_id):
     # end_time = int(time.time() * 1000)
     response = jsonp[jsonp.index("(") + 1: jsonp.rindex(")")]
     data = json.loads(response)
-
+    # print(data)
     print("%s ---get_buy_cart 方法 query.bag--- %s " % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'), data.get('ret')))
     settlement = ''
     canCheck = False
     flag = False
-    if "SUCCESS" not in data.get('ret')[0]:
+    if "SUCCESS::调用成功" not in data.get('ret')[0]:
+        print('get_buy_cart --- fail_sys_sleep')
         fail_sys_sleep(data)
     else:
         item_like = ['item_']
@@ -112,7 +114,7 @@ def build_order(buyNow):
     data = data.json()
     now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
     print("%s ---build_order方法--- order.build %s " % (now, data.get('ret')))
-    if "SUCCESS" not in data.get('ret')[0]:
+    if "SUCCESS::调用成功" not in data.get('ret')[0]:
         fail_sys_sleep(data)
         return flag, data
 
@@ -167,7 +169,7 @@ def create_order(build_data):
     json_data = json_data.json()
     now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
     print("%s create_order方法 order.create %s " % (now, json_data.get('ret')))
-    if "SUCCESS" in json_data.get('ret')[0]:
+    if "SUCCESS::调用成功" in json_data.get('ret')[0]:
         flag = True
     else:
         fail_sys_sleep(json_data)
@@ -209,6 +211,7 @@ while True:
     buy_cart_limit = 0
     while not buy_cart_flag:
         buy_cart_flag, canCheck, buy_now = get_buy_cart(good_id)
+        print('buy_cart_flag, canCheck, buy_now --- ', buy_cart_flag, canCheck, buy_now)
         if not buy_cart_flag:
             if buy_cart_limit >= 3:
                 buy_cart_limit = 0
